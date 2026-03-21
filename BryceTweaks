@@ -1,0 +1,311 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# ===== FORM =====
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Bryce Tweaks"
+$form.Size = New-Object System.Drawing.Size(900,600)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::Black
+$form.ForeColor = [System.Drawing.Color]::White
+
+# ===== LOGO =====
+$logo = New-Object System.Windows.Forms.PictureBox
+$logo.Size = New-Object System.Drawing.Size(50,50)
+$logo.Location = New-Object System.Drawing.Point(10,10)
+$logo.SizeMode = "StretchImage"
+$logo.Image = [System.Drawing.Image]::FromFile("C:\Path\To\Your\Logo.png")
+$form.Controls.Add($logo)
+
+# ===== TITLE =====
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "Bryce Tweaks"
+$title.Font = New-Object System.Drawing.Font("Segoe UI",14,[System.Drawing.FontStyle]::Bold)
+$title.Location = New-Object System.Drawing.Point(70,20)
+$title.AutoSize = $true
+$form.Controls.Add($title)
+
+# ===== PANEL =====
+$panel = New-Object System.Windows.Forms.Panel
+$panel.Size = New-Object System.Drawing.Size(220,480)
+$panel.Location = New-Object System.Drawing.Point(10,80)
+$panel.BackColor = [System.Drawing.Color]::FromArgb(20,20,20)
+$form.Controls.Add($panel)
+
+# ===== OUTPUT =====
+$outputBox = New-Object System.Windows.Forms.TextBox
+$outputBox.Multiline = $true
+$outputBox.ScrollBars = "Vertical"
+$outputBox.Size = New-Object System.Drawing.Size(640,450)
+$outputBox.Location = New-Object System.Drawing.Point(240,80)
+$outputBox.BackColor = [System.Drawing.Color]::Black
+$outputBox.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($outputBox)
+
+# ===== BUTTON CREATOR =====
+function Create-Button($text, $y, $action) {
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $text
+    $btn.Size = New-Object System.Drawing.Size(190,40)
+    $btn.Location = New-Object System.Drawing.Point(10,$y)
+    $btn.BackColor = [System.Drawing.Color]::White
+    $btn.ForeColor = [System.Drawing.Color]::Black
+    $btn.FlatStyle = "Flat"
+
+    $btn.Add_Click($action)
+    return $btn
+}
+
+# ===== RESTORE POINT =====
+function Create-RestorePoint {
+    $outputBox.AppendText("Creating restore point...`r`n")
+
+    Enable-ComputerRestore -Drive "C:\"
+    vssadmin resize shadowstorage /for=C: /on=C: /maxsize=10% | Out-Null
+
+    Checkpoint-Computer -Description "BryceTweaks Restore Point" -RestorePointType "MODIFY_SETTINGS"
+
+    $outputBox.AppendText("Restore point created.`r`n")
+}
+
+# ===== WINDOWS TWEAKS =====
+function Apply-WindowsTweaks {
+    $outputBox.AppendText("Applying Windows Tweaks...`r`n")
+
+    # ===== UI / VISUAL =====
+    # Disable transparency
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v EnableTransparency /t REG_DWORD /d 0 /f
+
+    # Disable animations
+    reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f
+
+    # ===== TASKBAR CLEAN =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAl /t REG_DWORD /d 1 /f  # center apps
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowTaskViewButton /t REG_DWORD /d 0 /f
+
+    # ===== NOTIFICATIONS OFF =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\PushNotifications" /v ToastEnabled /t REG_DWORD /d 0 /f
+
+    # ===== STORAGE SENSE OFF =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" /v 01 /t REG_DWORD /d 0 /f
+
+    # ===== GAME SETTINGS =====
+    # Enable Game Mode
+    reg add "HKCU\Software\Microsoft\GameBar" /v AllowAutoGameMode /t REG_DWORD /d 1 /f
+
+    # Disable Game Bar
+    reg add "HKCU\Software\Microsoft\GameBar" /v ShowStartupPanel /t REG_DWORD /d 0 /f
+    reg add "HKCU\System\GameConfigStore" /v GameDVR_Enabled /t REG_DWORD /d 0 /f
+
+    # ===== MOUSE =====
+    # Disable mouse acceleration
+    reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 0 /f
+
+    # ===== PRIVACY =====
+    # Disable inking & typing diagnostics
+    reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitTextCollection /t REG_DWORD /d 1 /f
+    reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitInkCollection /t REG_DWORD /d 1 /f
+
+    # Disable feedback
+    reg add "HKCU\Software\Microsoft\Siuf\Rules" /v NumberOfSIUFInPeriod /t REG_DWORD /d 0 /f
+
+    # ===== APP PERMISSIONS LOCKDOWN =====
+    # Deny most app access (you keep mic/cam manually later)
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" /v Value /t REG_SZ /d Deny /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\contacts" /v Value /t REG_SZ /d Deny /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\calendar" /v Value /t REG_SZ /d Deny /f
+
+    # ===== REGISTRY PERFORMANCE =====
+    # Priority control (decimal 22 / hex 16)
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 22 /f
+
+    # ===== SMOOTH MOUSE CURVE (flat / no accel curve) =====
+    reg add "HKCU\Control Panel\Mouse" /v SmoothMouseXCurve /t REG_BINARY /d 00000000000000000000000000000000000000000000000000000000 /f
+    reg add "HKCU\Control Panel\Mouse" /v SmoothMouseYCurve /t REG_BINARY /d 00000000000000000000000000000000000000000000000000000000 /f
+
+    # ===== DOWNLOAD WINDOWS UPDATE BLOCKER =====
+    $outputBox.AppendText("Downloading Windows Update Blocker...`r`n")
+
+    $url = "https://www.sordum.org/files/downloads.php?st-windows-update-blocker"
+    $zip = "$env:TEMP\WUB.zip"
+    $folder = "$env:TEMP\WUB"
+
+    Invoke-WebRequest $url -OutFile $zip
+    Expand-Archive $zip -DestinationPath $folder -Force
+
+    # Run it (may need manual interaction depending on version)
+    Start-Process "$folder\Wub.exe"
+
+    $outputBox.AppendText("Windows Tweaks Done.`r`n")
+}
+# ===== CPU TWEAKS =====
+function Apply-CPUTweaks {
+    $outputBox.AppendText("Applying CPU Tweaks...`r`n")
+
+    # ===== Network Throttling =====
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
+    /v NetworkThrottlingIndex /t REG_DWORD /d 4294967295 /f
+
+    # ===== Visual Effects (Best Performance) =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" `
+    /v VisualFXSetting /t REG_DWORD /d 2 /f
+
+    reg add "HKCU\Control Panel\Desktop" /v MenuShowDelay /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Desktop" /v DragFullWindows /t REG_SZ /d 0 /f
+
+    # ===== Startup Cleanup (basic) =====
+    $startupPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    Remove-ItemProperty -Path $startupPath -Name "Discord" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $startupPath -Name "Spotify" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $startupPath -Name "OneDrive" -ErrorAction SilentlyContinue
+
+    # ===== Unlock hidden core parking setting =====
+    powercfg -attributes 238C4F20-AD8A-404A-837A-3C5368967511 -ATTRIB_HIDE
+
+    # ===== Registry: Unhide core parking setting =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b720-22f5-4f8c-917a-626872017022" `
+    /v Attributes /t REG_DWORD /d 2 /f
+
+    # ===== Apply YOUR power plan =====
+    powercfg -setactive 900e823c-8a36-47f2-8925-21013504ce56
+
+    # ===== Disable core parking (100%) =====
+    powercfg -setacvalueindex 900e823c-8a36-47f2-8925-21013504ce56 `
+    54533251-82be-4824-96c1-47b60b740d00 `
+    0cc5b720-22f5-4f8c-917a-626872017022 100
+
+    powercfg -setdcvalueindex 900e823c-8a36-47f2-8925-21013504ce56 `
+    54533251-82be-4824-96c1-47b60b740d00 `
+    0cc5b720-22f5-4f8c-917a-626872017022 100
+
+    # Apply changes
+    powercfg -S 900e823c-8a36-47f2-8925-21013504ce56
+
+    $outputBox.AppendText("CPU Tweaks Done.`r`n")
+}
+# ===== USB TWEAKS =====
+function Apply-USBTweaks {
+    $outputBox.AppendText("Applying USB Tweaks...`r`n")
+
+    # ===== Keyboard Queue Size =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" `
+    /v KeyboardDataQueueSize /t REG_DWORD /d 32 /f
+
+    # ===== Mouse Queue Size =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" `
+    /v MouseDataQueueSize /t REG_DWORD /d 32 /f
+
+    # ===== Disable USB Selective Suspend =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB" `
+    /v DisableSelectiveSuspend /t REG_DWORD /d 1 /f
+
+    # ===== Power Plan USB settings =====
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE SUSPEND 0
+    powercfg -setdcvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE SUSPEND 0
+
+    # ===== Disable HID power saving =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\HidUsb" `
+    /v EnableSelectiveSuspend /t REG_DWORD /d 0 /f
+
+    # ===== Faster input responsiveness tweak =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" `
+    /v ThreadPriority /t REG_DWORD /d 31 /f
+
+    $outputBox.AppendText("USB Tweaks Done.`r`n")
+}
+# ===== DEBLOAT =====
+function Apply-Debloat {
+
+    # ===== WARNING POPUP =====
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        "This will uninstall built-in Windows apps and apply privacy changes.`n`nAre you sure you want to continue?",
+        "Bryce Tweaks - Debloat Warning",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+
+    if ($result -ne "Yes") {
+        $outputBox.AppendText("Debloat cancelled.`r`n")
+        return
+    }
+
+    $outputBox.AppendText("Starting Debloat...`r`n")
+
+    # ===== Download WPD =====
+    $outputBox.AppendText("Downloading WPD...`r`n")
+
+    $url = "https://wpd.app/get/latest.zip"
+    $zip = "$env:TEMP\WPD.zip"
+    $folder = "$env:TEMP\WPD"
+
+    Invoke-WebRequest $url -OutFile $zip
+    Expand-Archive $zip -DestinationPath $folder -Force
+
+    Start-Process "$folder\WPD.exe"
+
+    # ===== Notepad Instructions =====
+    $notePath = "$env:TEMP\BryceTweaks_WPD.txt"
+
+@"
+Bryce Tweaks - WPD Setup
+
+When WPD opens:
+
+1. Go to Privacy tab
+2. Click:
+   - Disable Telemetry
+   - Disable Telemetry IPs
+"@ | Out-File -FilePath $notePath -Encoding UTF8
+
+    Start-Process notepad.exe $notePath
+
+    # ===== Remove Apps =====
+    $outputBox.AppendText("Removing apps...`r`n")
+
+    Get-AppxPackage *XboxApp* | Remove-AppxPackage
+    Get-AppxPackage *3DViewer* | Remove-AppxPackage
+    Get-AppxPackage *MixedReality* | Remove-AppxPackage
+    Get-AppxPackage *People* | Remove-AppxPackage
+    Get-AppxPackage *BingNews* | Remove-AppxPackage
+    Get-AppxPackage *Weather* | Remove-AppxPackage
+    Get-AppxPackage *Maps* | Remove-AppxPackage
+    Get-AppxPackage *Solitaire* | Remove-AppxPackage
+    Get-AppxPackage *SkypeApp* | Remove-AppxPackage
+    Get-AppxPackage *Clipchamp* | Remove-AppxPackage
+    Get-AppxPackage *OfficeHub* | Remove-AppxPackage
+    Get-AppxPackage *FeedbackHub* | Remove-AppxPackage
+    Get-AppxPackage *GetHelp* | Remove-AppxPackage
+    Get-AppxPackage *OneNote* | Remove-AppxPackage
+    Get-AppxPackage *Paint3D* | Remove-AppxPackage
+    Get-AppxPackage *StickyNotes* | Remove-AppxPackage
+    Get-AppxPackage *ZuneMusic* | Remove-AppxPackage
+    Get-AppxPackage *ZuneVideo* | Remove-AppxPackage
+    Get-AppxPackage *MicrosoftTeams* | Remove-AppxPackage
+
+    $outputBox.AppendText("Debloat Complete.`r`n")
+}
+# ===== BUTTONS =====
+$y = 10
+
+$btnWin = Create-Button "Windows Tweaks" $y { Apply-WindowsTweaks }; $y += 50
+$btnCPU = Create-Button "CPU Tweaks" $y { Apply-CPUTweaks }; $y += 50
+$btnUSB = Create-Button "USB Tweaks" $y { Apply-USBTweaks }; $y += 50
+$btnDebloat = Create-Button "Debloat" $y { Apply-Debloat }; $y += 50
+
+$btnRestore = Create-Button "Create Restore Point" $y { Create-RestorePoint }; $y += 50
+$btnSystemRestore = Create-Button "System Restore UI" $y { rstrui.exe }; $y += 50
+$btnExit = Create-Button "Exit" $y { $form.Close() }
+
+$panel.Controls.AddRange(@(
+    $btnWin,
+    $btnCPU,
+    $btnUSB,
+    $btnDebloat,
+    $btnRestore,
+    $btnSystemRestore,
+    $btnExit
+))
+
+$form.ShowDialog()
