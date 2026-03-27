@@ -1,0 +1,534 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# ===== FORM =====
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Bryce Tweaks"
+$form.Size = New-Object System.Drawing.Size(900,600)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::Black
+$form.ForeColor = [System.Drawing.Color]::White
+
+# ===== LOGO =====
+$logo = New-Object System.Windows.Forms.PictureBox
+$logo.Size = New-Object System.Drawing.Size(50,50)
+$logo.Location = New-Object System.Drawing.Point(10,10)
+$logo.SizeMode = "StretchImage"
+$logo.Image = [System.Drawing.Image]::FromFile("C:\Path\To\Your\Logo.png")
+$form.Controls.Add($logo)
+
+# ===== TITLE =====
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "Bryce Tweaks"
+$title.Font = New-Object System.Drawing.Font("Segoe UI",14,[System.Drawing.FontStyle]::Bold)
+$title.Location = New-Object System.Drawing.Point(70,20)
+$title.AutoSize = $true
+$form.Controls.Add($title)
+
+# ===== PANEL =====
+$panel = New-Object System.Windows.Forms.Panel
+$panel.Size = New-Object System.Drawing.Size(220,480)
+$panel.Location = New-Object System.Drawing.Point(10,80)
+$panel.BackColor = [System.Drawing.Color]::FromArgb(20,20,20)
+$form.Controls.Add($panel)
+
+# ===== OUTPUT =====
+$outputBox = New-Object System.Windows.Forms.TextBox
+$outputBox.Multiline = $true
+$outputBox.ScrollBars = "Vertical"
+$outputBox.Size = New-Object System.Drawing.Size(640,450)
+$outputBox.Location = New-Object System.Drawing.Point(240,80)
+$outputBox.BackColor = [System.Drawing.Color]::Black
+$outputBox.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($outputBox)
+
+# ===== BUTTON CREATOR =====
+function Create-Button($text, $y, $action) {
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $text
+    $btn.Size = New-Object System.Drawing.Size(190,40)
+    $btn.Location = New-Object System.Drawing.Point(10,$y)
+    $btn.BackColor = [System.Drawing.Color]::White
+    $btn.ForeColor = [System.Drawing.Color]::Black
+    $btn.FlatStyle = "Flat"
+
+    $btn.Add_Click($action)
+    return $btn
+}
+
+# ===== RESTORE POINT =====
+function Create-RestorePoint {
+    $outputBox.AppendText("Creating restore point...`r`n")
+
+    Enable-ComputerRestore -Drive "C:\"
+    vssadmin resize shadowstorage /for=C: /on=C: /maxsize=10% | Out-Null
+
+    Checkpoint-Computer -Description "BryceTweaks Restore Point" -RestorePointType "MODIFY_SETTINGS"
+
+    $outputBox.AppendText("Restore point created.`r`n")
+}
+
+# ===== WINDOWS TWEAKS =====
+function Apply-WindowsTweaks {
+    $outputBox.AppendText("Applying Windows Tweaks...`r`n")
+
+    # ===== UI / VISUAL =====
+    # Disable transparency
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v EnableTransparency /t REG_DWORD /d 0 /f
+
+    # Disable animations
+    reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f
+
+    # ===== TASKBAR CLEAN =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAl /t REG_DWORD /d 1 /f  # center apps
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowTaskViewButton /t REG_DWORD /d 0 /f
+
+    # ===== NOTIFICATIONS OFF =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\PushNotifications" /v ToastEnabled /t REG_DWORD /d 0 /f
+
+    # ===== STORAGE SENSE OFF =====
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" /v 01 /t REG_DWORD /d 0 /f
+
+    # ===== GAME SETTINGS =====
+    # Enable Game Mode
+    reg add "HKCU\Software\Microsoft\GameBar" /v AllowAutoGameMode /t REG_DWORD /d 1 /f
+
+    # Disable Game Bar
+    reg add "HKCU\Software\Microsoft\GameBar" /v ShowStartupPanel /t REG_DWORD /d 0 /f
+    reg add "HKCU\System\GameConfigStore" /v GameDVR_Enabled /t REG_DWORD /d 0 /f
+
+    # ===== MOUSE =====
+    # Disable mouse acceleration
+    reg add "HKCU\Control Panel\Mouse" /v MouseSpeed /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold1 /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Mouse" /v MouseThreshold2 /t REG_SZ /d 0 /f
+
+    # ===== PRIVACY =====
+    # Disable inking & typing diagnostics
+    reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitTextCollection /t REG_DWORD /d 1 /f
+    reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitInkCollection /t REG_DWORD /d 1 /f
+
+    # Disable feedback
+    reg add "HKCU\Software\Microsoft\Siuf\Rules" /v NumberOfSIUFInPeriod /t REG_DWORD /d 0 /f
+
+    # ===== APP PERMISSIONS LOCKDOWN =====
+    # Deny most app access (you keep mic/cam manually later)
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" /v Value /t REG_SZ /d Deny /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\contacts" /v Value /t REG_SZ /d Deny /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\calendar" /v Value /t REG_SZ /d Deny /f
+
+    # ===== REGISTRY PERFORMANCE =====
+    # Priority control (decimal 22 / hex 16)
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 22 /f
+
+    # ===== SMOOTH MOUSE CURVE (flat / no accel curve) =====
+    reg add "HKCU\Control Panel\Mouse" /v SmoothMouseXCurve /t REG_BINARY /d 00000000000000000000000000000000000000000000000000000000 /f
+    reg add "HKCU\Control Panel\Mouse" /v SmoothMouseYCurve /t REG_BINARY /d 00000000000000000000000000000000000000000000000000000000 /f
+# ===== WINDOWS UI / RESPONSIVENESS =====
+    $outputBox.AppendText("Windows UI optimizations...`r`n")
+    reg add "HKCU\Control Panel\Desktop" /v MenuShowDelay /t REG_SZ /d 0 /f
+    reg add "HKCU\Control Panel\Desktop" /v AutoEndTasks /t REG_SZ /d 1 /f
+    reg add "HKCU\Control Panel\Desktop" /v HungAppTimeout /t REG_SZ /d 2000 /f
+    reg add "HKCU\Control Panel\Desktop" /v WaitToKillAppTimeout /t REG_SZ /d 2000 /f
+    reg add "HKCU\Control Panel\Desktop" /v WaitToKillServiceTimeout /t REG_SZ /d 2000 /f
+
+    # Explorer responsiveness
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ExtendedUIHoverTime /t REG_DWORD /d 10 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ListviewAlphaSelect /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ListviewShadow /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAnimations /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /v StartupDelayInMSec /t REG_DWORD /d 0 /f
+
+    # ===== VISUAL EFFECTS CUT =====
+    $outputBox.AppendText("Disabling visual effects...`r`n")
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f
+    reg add "HKCU\Control Panel\Desktop\WindowMetrics" /v MinAnimate /t REG_SZ /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\DWM" /v EnableAeroPeek /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\DWM" /v AlwaysHibernateThumbnails /t REG_DWORD /d 0 /f
+
+    # ===== BACKGROUND PROCESS REDUCTION =====
+    $outputBox.AppendText("Reducing background processes...`r`n")
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v EnableActivityFeed /t REG_DWORD /d 0 /f
+    reg add "HKLM\SOFTWARE\Microsoft\SQMClient\Windows" /v CEIPEnable /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Siuf\Rules" /v NumberOfSIUFInPeriod /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" /v GlobalUserDisabled /t REG_DWORD /d 1 /f
+
+    # ===== SEARCH / INDEXING =====
+    $outputBox.AppendText("Windows Search optimizations...`r`n")
+    sc stop WSearch
+    sc config WSearch start= disabled
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v BingSearchEnabled /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v CortanaConsent /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\SearchSettings" /v IsDeviceSearchHistoryEnabled /t REG_DWORD /d 0 /f
+
+    # ===== STARTUP / BOOT SPEED =====
+    $outputBox.AppendText("Boot optimization...`r`n")
+    powercfg -h off
+    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v VerboseStatus /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /v StartupDelayInMSec /t REG_DWORD /d 0 /f
+
+    # ===== MEMORY OPTIMIZATION =====
+    $outputBox.AppendText("Memory tuning...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v LargeSystemCache /t REG_DWORD /d 1 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v ClearPageFileAtShutdown /t REG_DWORD /d 0 /f
+
+    # ===== FILE SYSTEM / EXPLORER =====
+    $outputBox.AppendText("File system tweaks...`r`n")
+    fsutil behavior set disablelastaccess 1
+    fsutil behavior set disable8dot3 1
+
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v Start_ShowRecentDocs /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowFrequent /t REG_DWORD /d 0 /f
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowSyncProviderNotifications /t REG_DWORD /d 0 /f
+
+    # ===== SERVICE CUTTING =====
+    $outputBox.AppendText("Disabling background services...`r`n")
+    sc stop SysMain
+    sc config SysMain start= disabled
+    sc stop Fax
+    sc config Fax start= disabled
+    sc stop RetailDemo
+    sc config RetailDemo start= disabled
+    sc stop WerSvc
+    sc config WerSvc start= disabled
+
+    # ===== NETWORK STACK LIGHT TWEAKS =====
+    $outputBox.AppendText("Network optimization...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" /v EnableTCPA /t REG_DWORD /d 0 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" /v EnablePMTUDiscovery /t REG_DWORD /d 1 /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness /t REG_DWORD /d 0 /f
+
+    # ===== GAMING PRIORITY =====
+    $outputBox.AppendText("Gaming scheduler priority...`r`n")
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v Priority /t REG_DWORD /d 6 /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Scheduling Category" /t REG_SZ /d High /f
+
+    # ===== FINAL CLEANUP =====
+    $outputBox.AppendText("Final Windows optimizations...`r`n")
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v Start_JumpListItems /t REG_DWORD /d 0 /f
+
+    # ===== DOWNLOAD WINDOWS UPDATE BLOCKER =====
+    $outputBox.AppendText("Downloading Windows Update Blocker...`r`n")
+
+    $url = "https://www.sordum.org/files/downloads.php?st-windows-update-blocker"
+    $zip = "$env:TEMP\WUB.zip"
+    $folder = "$env:TEMP\WUB"
+
+    Invoke-WebRequest $url -OutFile $zip
+    Expand-Archive $zip -DestinationPath $folder -Force
+
+    # Run it (may need manual interaction depending on version)
+    Start-Process "$folder\Wub.exe"
+    $outputBox.AppendText("Windows Tweaks Complete.`r`n")
+}
+# ===== CPU TWEAKS =====
+function Apply-CPUTweaks {
+    $outputBox.AppendText("Applying CPU Tweaks...`r`n")
+
+    # ===== CPU SCHEDULING =====
+    $outputBox.AppendText("Optimizing CPU scheduling...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 22 /f
+
+    # ===== SYSTEM RESPONSIVENESS =====
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness /t REG_DWORD /d 0 /f
+
+    # ===== GAME PRIORITY =====
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v Priority /t REG_DWORD /d 6 /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Scheduling Category" /t REG_SZ /d High /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "SFIO Priority" /t REG_SZ /d High /f
+
+    # ===== DISABLE CPU THROTTLING =====
+    $outputBox.AppendText("Disabling CPU throttling...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" /v PowerThrottlingOff /t REG_DWORD /d 1 /f
+
+    # ===== POWER PLAN (MAX PERFORMANCE) =====
+    powercfg -setactive SCHEME_MIN
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
+
+    # ===== DISABLE CORE PARKING =====
+    $outputBox.AppendText("Disabling core parking...`r`n")
+    powercfg -attributes SUB_PROCESSOR CPMINCORES -ATTRIB_HIDE
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
+
+    # ===== DISABLE IDLE STATES =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power" /v CsEnabled /t REG_DWORD /d 0 /f
+
+    # ===== TIMER / LATENCY =====
+    $outputBox.AppendText("Applying timer tweaks...`r`n")
+    bcdedit /set disabledynamictick yes
+    bcdedit /set useplatformtick yes
+
+    # ===== NETWORK THROTTLE REMOVAL =====
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v NetworkThrottlingIndex /t REG_DWORD /d 4294967295 /f
+
+    # ===== PREFETCH / BACKGROUND CPU USAGE =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" /v EnablePrefetcher /t REG_DWORD /d 0 /f
+
+    # ===== SERVICE REDUCTION (CPU LOAD) =====
+    sc stop SysMain
+    sc config SysMain start= disabled
+
+    sc stop WSearch
+    sc config WSearch start= disabled
+	# ===== FOREGROUND APP BOOST =====
+	$outputBox.AppendText("Boosting foreground app CPU priority...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PriorityForegroundBoost /t REG_DWORD /d 1 /f
+
+	# ===== LARGE SYSTEM CACHE =====
+	$outputBox.AppendText("Enabling large system cache for CPU-intensive tasks...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v LargeSystemCache /t REG_DWORD /d 1 /f
+
+	# ===== DISABLE CPU FREQUENCY SCALING =====
+	$outputBox.AppendText("Disabling CPU frequency scaling...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\bc5038f7-23e0-4960-96da-33abaf5935ec" /v Attributes /t REG_DWORD /d 2 /f
+
+	# ===== DISABLE CPU IDLE LOOP OPTIMIZATION =====
+	$outputBox.AppendText("Disabling idle loop optimization for smoother performance...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 1 /f
+
+	$outputBox.AppendText("Enabling high precision event timer...`r`n")
+	bcdedit /set useplatformclock true
+
+	# ===== DISABLE C-STATE POWER SAVING =====
+	outputBox.AppendText("Disabling CPU C-states to prevent power throttling...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\be337238-0d82-4146-a960-4f3749d470c7" /v Attributes /t REG_DWORD /d 2 /f
+
+	# ===== DISABLE PROCESSOR PERFORMANCE BOOST =====
+	$outputBox.AppendText("Disabling processor performance boost mode...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\be337238-0d82-4146-a960-4f3749d470c7" /v ValueMax /t REG_DWORD /d 0 /f
+	
+	# ===== DISABLE CPU THROTTLING ON BATTERY =====
+	$outputBox.AppendText("Disabling CPU throttling when on battery power...`r`n")
+	powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
+	powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
+
+	# ===== FAVOUR PERFORMANCE FOR CPU-HEAVY TASKS =====
+	$outputBox.AppendText("Configuring CPU to favor performance over power...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v LargeSystemCache /t REG_DWORD /d 1 /f
+
+	# ===== DISABLE BACKGROUND CPU FREQUENCY SCALING =====
+	$outputBox.AppendText("Preventing CPU frequency scaling for background tasks...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\bc5038f7-23e0-4960-96da-33abaf5935ec" /v Attributes /t REG_DWORD /d 2 /f
+
+    $outputBox.AppendText("CPU Tweaks Complete.`r`n")
+}
+# ===== USB TWEAKS =====
+function Apply-USBTweaks {
+    $outputBox.AppendText("Applying USB Tweaks...`r`n")
+
+    # ===== INPUT BUFFER / QUEUE =====
+    $outputBox.AppendText("Optimizing input buffers...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /t REG_DWORD /d 32 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /t REG_DWORD /d 32 /f
+
+    # ===== DISABLE USB POWER SAVING =====
+    $outputBox.AppendText("Disabling USB power saving...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB" /v DisableSelectiveSuspend /t REG_DWORD /d 1 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\HidUsb" /v EnableSelectiveSuspend /t REG_DWORD /d 0 /f
+
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE SUSPEND 0
+    powercfg -setdcvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE SUSPEND 0
+
+    # ===== INPUT LATENCY PRIORITY =====
+    $outputBox.AppendText("Boosting input priority...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v ThreadPriority /t REG_DWORD /d 31 /f
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v ThreadPriority /t REG_DWORD /d 31 /f
+
+    # ===== POLLING / INTERRUPT BEHAVIOR =====
+    $outputBox.AppendText("Optimizing USB polling...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB" /v EnIdleEndpointSupport /t REG_DWORD /d 0 /f
+
+    # ===== DISABLE USB IDLE =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\USBHUB3" /v DisableSelectiveSuspend /t REG_DWORD /d 1 /f
+
+    # ===== FAST DEVICE RESPONSE =====
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\UsbFlags" /v GlobalDisableSelectiveSuspend /t REG_DWORD /d 1 /f
+
+    # ===== OPTIONAL: CLEAN DEVICE POWER STATES =====
+    $outputBox.AppendText("Cleaning USB device power states...`r`n")
+    reg add "HKLM\SYSTEM\CurrentControlSet\Enum\USB" /v EnhancedPowerManagementEnabled /t REG_DWORD /d 0 /f
+	# ===== INCREASE USB POLLING FREQUENCY =====
+	$outputBox.AppendText("Increasing USB polling frequency for faster input...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB" /v PollingInterval /t REG_DWORD /d 1 /f
+
+	# ===== HIGH-PERFORMANCE USB THREADS =====
+	$outputBox.AppendText("Setting USB driver threads to high priority...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USBHUB3\Parameters" /v ThreadPriority /t REG_DWORD /d 31 /f
+
+	# ===== REDUCE USB INTERRUPT LATENCY =====
+	$outputBox.AppendText("Reducing USB interrupt latency...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USBHUB3\Parameters" /v InterruptModeration /t REG_DWORD /d 0 /f
+
+	# ===== ENABLE DYNAMIC THREAD OPTIMIZATION =====
+	$outputBox.AppendText("Optimizing USB threads dynamically...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB\Parameters" /v DynamicThreadOptimization /t REG_DWORD /d 1 /f
+
+	# ===== FORCE LOW-LATENCY MODE =====
+	$outputBox.AppendText("Forcing USB devices into low-latency mode...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\UsbFlags" /v LowLatencyMode /t REG_DWORD /d 1 /f
+
+	# ===== DISABLE USB INTERRUPT COALESCING =====
+	$outputBox.AppendText("Disabling USB interrupt coalescing...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USBHUB3\Parameters" /v Coalescing /t REG_DWORD /d 0 /f
+
+	# ===== PRIORITIZE GAMEPAD INPUT THREADS =====
+	$outputBox.AppendText("Prioritizing USB threads for gamepad input...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\HidUsb\Parameters" /v ThreadPriority /t REG_DWORD /d 31 /f
+
+	# ===== DISABLE USB LATENCY FILTERING =====
+	$outputBox.AppendText("Disabling USB latency smoothing filters...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB\Parameters" /v LatencyFiltering /t REG_DWORD /d 0 /f
+
+	# ===== CLEAN USB TRANSFER BUFFERS =====
+	$outputBox.AppendText("Cleaning USB transfer buffers for faster response...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\UsbFlags" /v ResetTransferBuffers /t REG_DWORD /d 1 /f
+
+	# ===== ENABLE DEDICATED USB THREADS =====
+	$outputBox.AppendText("Assigning dedicated threads for critical USB devices...`r`n")
+	reg add "HKLM\SYSTEM\CurrentControlSet\Services\USB\Parameters" /v DedicatedThreads /t REG_DWORD /d 1 /f
+    $outputBox.AppendText("USB Tweaks Complete.`r`n")
+}
+# ===== DEBLOAT =====
+function Apply-Debloat {
+
+    # ===== WARNING POPUP =====
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        "This will uninstall built-in Windows apps and apply privacy changes.`n`nAre you sure you want to continue?",
+        "Bryce Tweaks - Debloat Warning",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+
+    if ($result -ne "Yes") {
+        $outputBox.AppendText("Debloat cancelled.`r`n")
+        return
+    }
+
+    $outputBox.AppendText("Starting Debloat...`r`n")
+
+    # ===== Download WPD =====
+    $outputBox.AppendText("Downloading WPD...`r`n")
+
+    $url = "https://wpd.app/get/latest.zip"
+    $zip = "$env:TEMP\WPD.zip"
+    $folder = "$env:TEMP\WPD"
+
+    Invoke-WebRequest $url -OutFile $zip
+    Expand-Archive $zip -DestinationPath $folder -Force
+
+    Start-Process "$folder\WPD.exe"
+
+    # ===== Notepad Instructions =====
+    $notePath = "$env:TEMP\BryceTweaks_WPD.txt"
+
+@"
+Bryce Tweaks - WPD Setup
+
+When WPD opens:
+
+1. Go to Privacy tab
+2. Click:
+   - Disable Telemetry
+   - Disable Telemetry IPs
+"@ | Out-File -FilePath $notePath -Encoding UTF8
+
+ Start-Process notepad.exe $notePath
+	# ===== DOWNLOAD SHUTUP10 =====
+	$outputBox.AppendText("Downloading ShutUp10...`r`n")
+
+	$shutupUrl = "https://www.oo-software.com/en/shutup10/download"
+	$shutupExe = "$env:TEMP\ShutUp10.exe"
+
+	Invoke-WebRequest $shutupUrl -OutFile $shutupExe
+	Start-Process $shutupExe
+
+	# ===== NOTEPAD INSTRUCTIONS =====
+	$shutupNote = "$env:TEMP\BryceTweaks_ShutUp10.txt"
+
+	@"
+	Bryce Tweaks - ShutUp10 Setup
+
+	When ShutUp10 opens:
+
+	1. Click 'Actions'
+	2. Click 'Recommended settings'
+	"@ | Out-File -FilePath $shutupNote -Encoding UTF8
+
+	Start-Process notepad.exe $shutupNote
+    # ===== REMOVE BUILT-IN APPS (SAFE) =====
+    $outputBox.AppendText("Removing bloat apps...`r`n")
+
+    Get-AppxPackage *3DViewer* | Remove-AppxPackage
+    Get-AppxPackage *BingNews* | Remove-AppxPackage
+    Get-AppxPackage *GetHelp* | Remove-AppxPackage
+    Get-AppxPackage *GetStarted* | Remove-AppxPackage
+    Get-AppxPackage *Microsoft3DViewer* | Remove-AppxPackage
+    Get-AppxPackage *MicrosoftOfficeHub* | Remove-AppxPackage
+    Get-AppxPackage *MicrosoftSolitaireCollection* | Remove-AppxPackage
+    Get-AppxPackage *People* | Remove-AppxPackage
+    Get-AppxPackage *SkypeApp* | Remove-AppxPackage
+    Get-AppxPackage *WindowsFeedbackHub* | Remove-AppxPackage
+    Get-AppxPackage *XboxApp* | Remove-AppxPackage
+    Get-AppxPackage *XboxGameOverlay* | Remove-AppxPackage
+    Get-AppxPackage *XboxGamingOverlay* | Remove-AppxPackage
+    Get-AppxPackage *XboxSpeechToTextOverlay* | Remove-AppxPackage
+    Get-AppxPackage *YourPhone* | Remove-AppxPackage
+    Get-AppxPackage *ZuneMusic* | Remove-AppxPackage
+    Get-AppxPackage *ZuneVideo* | Remove-AppxPackage
+
+    # ===== REMOVE FOR ALL USERS =====
+    Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*Xbox*" | Remove-AppxProvisionedPackage -Online
+    Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*Skype*" | Remove-AppxProvisionedPackage -Online
+
+    # ===== DISABLE TELEMETRY SERVICES =====
+    $outputBox.AppendText("Disabling telemetry services...`r`n")
+
+    sc stop DiagTrack
+    sc config DiagTrack start= disabled
+
+    sc stop dmwappushservice
+    sc config dmwappushservice start= disabled
+
+    # ===== DISABLE SCHEDULED TELEMETRY TASKS =====
+    schtasks /Change /TN "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser" /Disable
+    schtasks /Change /TN "\Microsoft\Windows\Customer Experience Improvement Program\Consolidator" /Disable
+    schtasks /Change /TN "\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip" /Disable
+
+    # ===== EDGE BACKGROUND DISABLE =====
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v StartupBoostEnabled /t REG_DWORD /d 0 /f
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v BackgroundModeEnabled /t REG_DWORD /d 0 /f
+
+    # ===== ONEDRIVE DISABLE =====
+    $outputBox.AppendText("Disabling OneDrive...`r`n")
+
+    taskkill /f /im OneDrive.exe 2>$null
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive" /v DisableFileSyncNGSC /t REG_DWORD /d 1 /f
+
+    # ===== FINAL =====
+    $outputBox.AppendText("Debloat Complete.`r`n")
+}
+# ===== BUTTONS =====
+$y = 10
+
+$btnWin = Create-Button "Windows Tweaks" $y { Apply-WindowsTweaks }; $y += 50
+$btnCPU = Create-Button "CPU Tweaks" $y { Apply-CPUTweaks }; $y += 50
+$btnUSB = Create-Button "USB Tweaks" $y { Apply-USBTweaks }; $y += 50
+$btnDebloat = Create-Button "Debloat" $y { Apply-Debloat }; $y += 50
+
+$btnRestore = Create-Button "Create Restore Point" $y { Create-RestorePoint }; $y += 50
+$btnSystemRestore = Create-Button "System Restore UI" $y { rstrui.exe }; $y += 50
+$btnExit = Create-Button "Exit" $y { $form.Close() }
+
+$panel.Controls.AddRange(@(
+    $btnWin,
+    $btnCPU,
+    $btnUSB,
+    $btnDebloat,
+    $btnRestore,
+    $btnSystemRestore,
+    $btnExit
+))
+
+$form.ShowDialog()
