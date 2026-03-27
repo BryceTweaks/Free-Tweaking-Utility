@@ -9,20 +9,13 @@ $form.StartPosition = "CenterScreen"
 $form.BackColor = [System.Drawing.Color]::Black
 $form.ForeColor = [System.Drawing.Color]::White
 
-# ===== LOGO =====
-$logo = New-Object System.Windows.Forms.PictureBox
-$logo.Size = New-Object System.Drawing.Size(50,50)
-$logo.Location = New-Object System.Drawing.Point(10,10)
-$logo.SizeMode = "StretchImage"
-$logo.Image = [System.Drawing.Image]::FromFile("C:\Path\To\Your\Logo.png")
-$form.Controls.Add($logo)
-
 # ===== TITLE =====
 $title = New-Object System.Windows.Forms.Label
-$title.Text = "Bryce Tweaks"
-$title.Font = New-Object System.Drawing.Font("Segoe UI",14,[System.Drawing.FontStyle]::Bold)
+$title.Text = "Performance Optimizer V1"
+$title.Font = New-Object System.Drawing.Font("Segoe UI",24,[System.Drawing.FontStyle]::Bold) # bigger font
 $title.Location = New-Object System.Drawing.Point(70,20)
 $title.AutoSize = $true
+$title.ForeColor = [System.Drawing.Color]::White
 $form.Controls.Add($title)
 
 # ===== PANEL =====
